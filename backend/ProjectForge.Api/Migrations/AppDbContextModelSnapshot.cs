@@ -291,6 +291,9 @@ namespace ProjectForge.Api.Migrations
                     b.Property<DateOnly?>("DueDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Priority")
                         .HasColumnType("INTEGER");
 
@@ -311,7 +314,7 @@ namespace ProjectForge.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Status", "CreatedAt");
+                    b.HasIndex("OwnerId", "Status", "CreatedAt");
 
                     b.ToTable("WorkItems");
                 });
@@ -387,6 +390,16 @@ namespace ProjectForge.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("ProjectForge.Api.Models.WorkItem", b =>
+                {
+                    b.HasOne("ProjectForge.Api.Models.ApplicationUser", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Owner");
                 });
 #pragma warning restore 612, 618
         }

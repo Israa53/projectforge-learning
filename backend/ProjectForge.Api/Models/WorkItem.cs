@@ -18,6 +18,10 @@ public class WorkItem
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    public string? OwnerId { get; set; }
+
+    public ApplicationUser? Owner { get; set; }
+
     public string Title { get; set; } = "";
 
     public string Description { get; set; } = "";

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectForge.Api.Contracts;
@@ -7,31 +9,41 @@ using ProjectForge.Api.Models;
 namespace ProjectForge.Api.Controllers;
 
 [ApiController]
-[Route("api/work-items")] // "Route" sets the controller’s base URL
+[Route("api/work-items")]
+[Authorize]
 public class WorkItemsController : ControllerBase
 {
-    // Constructor parameter "AppDbContext db" indicates that ASP.NET injects the registered database context.
     private readonly AppDbContext _db;
 
+    // ASP.NET Core injects the registered database context into the controller.
     public WorkItemsController(AppDbContext db)
     {
         _db = db;
     }
-    // POST: api/workitems
-    [HttpPost]
-    [ProducesResponseType(typeof(WorkItemDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(
-        typeof(ValidationProblemDetails),
-        StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<WorkItemDto>> Create(
-        // "[FromBody]" checks that request JSON is deserialized into the input DTO.
-        [FromBody] WorkItemInput input,
-        CancellationToken cancellationToken)
-    // "CancellationToken" allows the request to be cancelled, for example if the client disconnects.
 
+    // MapInboundClaims is false in our JWT configuration,
+    // so the user ID is available under the original "sub" claim.
+    private string? CurrentUserId =>
+        User.FindFirstValue("sub");
+
+    // POST: api/work-items
+    [HttpPost]
+    public async Task<ActionResult<WorkItemDto>> Create(
+        // Bind the JSON request body to the work-item input DTO.
+        [FromBody] WorkItemInput input,
+        // Allows database work to stop if the client disconnects.
+        CancellationToken cancellationToken)
     {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
         var item = new WorkItem
         {
+            OwnerId = userId,
             Title = input.Title.Trim(),
             Description = input.Description.Trim(),
             Status = input.Status,
@@ -39,10 +51,9 @@ public class WorkItemsController : ControllerBase
             DueDate = input.DueDate
         };
 
-        // "Add(item)" starts tracking a new entity; it doesn’t save yet
+        // Add starts tracking the new entity; SaveChangesAsync persists it.
         _db.WorkItems.Add(item);
 
-        // "SaveChangesAsync(...)" writes all tracked changes to the database.
         await _db.SaveChangesAsync(cancellationToken);
 
         return CreatedAtAction(
@@ -51,19 +62,30 @@ public class WorkItemsController : ControllerBase
             WorkItemDto.From(item)
         );
     }
-    // GET: api/workitems
+
+    // GET: api/work-items
     [HttpGet]
     public async Task<ActionResult<PagedResult<WorkItemDto>>> GetAll(
-     [FromQuery] ListQuery input,
-     CancellationToken cancellationToken)
+        [FromQuery] ListQuery input,
+        CancellationToken cancellationToken)
     {
-        var query = _db.WorkItems.AsNoTracking();
+        var userId = CurrentUserId;
 
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+        // Apply ownership before search, counting, or pagination.
+        var query = _db.WorkItems
+            .AsNoTracking()
+            .Where(item => item.OwnerId == userId);
+
+        // Filter by the search term when one was provided.
         if (!string.IsNullOrWhiteSpace(input.Search))
         {
             var search = input.Search.Trim().ToLower();
 
-            // "Where" filters the query based on the search criteria
             query = query.Where(item =>
                 item.Title.ToLower().Contains(search) ||
                 item.Description.ToLower().Contains(search)
@@ -72,16 +94,17 @@ public class WorkItemsController : ControllerBase
 
         if (input.Status is not null)
         {
-            query = query.Where(item => item.Status == input.Status);
+            query = query.Where(
+                item => item.Status == input.Status
+            );
         }
 
-        // "CountAsync" gets the total number of items matching the query
-        var totalCount = await query.CountAsync(cancellationToken);
+        // Count matching items before applying pagination.
+        var totalCount = await query.CountAsync(
+            cancellationToken
+        );
 
-        // "OrderByDescending" sorts the items by creation date in descending order
-        // "ThenBy" sorts the items by ID in ascending order
-        // "Skip" skips the number of items based on the current page and page size
-        // "Take" implements pagination by taking the specified number of items
+        // Sort consistently, then select only the requested page.
         var items = await query
             .OrderByDescending(item => item.CreatedAt)
             .ThenBy(item => item.Id)
@@ -89,27 +112,33 @@ public class WorkItemsController : ControllerBase
             .Take(input.PageSize)
             .ToListAsync(cancellationToken);
 
-        var response = new PagedResult<WorkItemDto>(
+        return Ok(new PagedResult<WorkItemDto>(
             items.Select(WorkItemDto.From).ToList(),
             totalCount,
             input.Page,
             input.PageSize
-        );
-
-        return Ok(response);
+        ));
     }
-    // GET: api/workitems/{id}
+
+    // GET: api/work-items/{id}
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(WorkItemDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<WorkItemDto>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
         var item = await _db.WorkItems
-            .AsNoTracking() // "AsNoTracking" reads entities without tracking them for updates
+            .AsNoTracking()
             .SingleOrDefaultAsync(
-                item => item.Id == id,
+                item =>
+                    item.Id == id &&
+                    item.OwnerId == userId,
                 cancellationToken
             );
 
@@ -120,24 +149,26 @@ public class WorkItemsController : ControllerBase
 
         return Ok(WorkItemDto.From(item));
     }
-    // PUT: api/workitems/{id}
+
+    // PUT: api/work-items/{id}
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(typeof(WorkItemDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(
-    typeof(ValidationProblemDetails),
-    StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(
-    typeof(ProblemDetails),
-    StatusCodes.Status409Conflict)]
     public async Task<ActionResult<WorkItemDto>> Update(
-    Guid id,
-    [FromBody] UpdateWorkItemInput input,
-    CancellationToken cancellationToken)
+        Guid id,
+        [FromBody] UpdateWorkItemInput input,
+        CancellationToken cancellationToken)
     {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
         var item = await _db.WorkItems
             .SingleOrDefaultAsync(
-                item => item.Id == id,
+                item =>
+                    item.Id == id &&
+                    item.OwnerId == userId,
                 cancellationToken
             );
 
@@ -156,7 +187,6 @@ public class WorkItemsController : ControllerBase
         item.Status = input.Status;
         item.Priority = input.Priority;
         item.DueDate = input.DueDate;
-
         item.UpdatedAt = DateTime.UtcNow;
         item.Version = Guid.NewGuid();
 
@@ -172,33 +202,35 @@ public class WorkItemsController : ControllerBase
         return Ok(WorkItemDto.From(item));
     }
 
-    // DELETE: api/workitems/{id}
+    // DELETE: api/work-items/{id}
     [HttpDelete("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         Guid id,
         [FromQuery] Guid? version,
         CancellationToken cancellationToken)
     {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
         if (version is null)
         {
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Version is required",
-                detail: "Provide the item's current version in the query string."
+                detail:
+                    "Provide the item's current version in the query string."
             );
         }
 
         var item = await _db.WorkItems
             .SingleOrDefaultAsync(
-                item => item.Id == id,
+                item =>
+                    item.Id == id &&
+                    item.OwnerId == userId,
                 cancellationToken
             );
 
@@ -207,7 +239,7 @@ public class WorkItemsController : ControllerBase
             return NotFound();
         }
 
-        if (item.Version != version)
+        if (item.Version != version.Value)
         {
             return VersionConflict();
         }
@@ -223,6 +255,7 @@ public class WorkItemsController : ControllerBase
             return VersionConflict();
         }
 
+        // Successful DELETE returns 204 No Content with no response body.
         return NoContent();
     }
 
@@ -231,8 +264,8 @@ public class WorkItemsController : ControllerBase
         return Problem(
             statusCode: StatusCodes.Status409Conflict,
             title: "This item changed",
-            detail: "Reload the latest item before editing or deleting it."
+            detail:
+                "Reload the latest item before editing or deleting it."
         );
     }
-
 }

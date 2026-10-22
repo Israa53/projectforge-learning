@@ -1,3 +1,5 @@
+import { ApiError, apiFetch, ensureSuccess } from "../../lib/http";
+
 import type {
   NewWorkItemInput,
   PagedResult,
@@ -16,22 +18,12 @@ export async function getWorkItems(
   });
 
   if (filters.status !== "") {
-    const statusValues = {
-      Backlog: 0,
-      InProgress: 1,
-      Done: 2,
-    };
-
-    params.set("Status", String(statusValues[filters.status]));
+    params.set("Status", filters.status);
   }
 
-  const response = await fetch(`/api/work-items?${params}`, {
-    signal,
-  });
+  const response = await apiFetch(`/api/work-items?${params}`, { signal });
 
-  if (!response.ok) {
-    throw new Error(`Could not load work items. HTTP ${response.status}.`);
-  }
+  await ensureSuccess(response);
 
   return response.json();
 }
@@ -39,25 +31,15 @@ export async function getWorkItems(
 export async function createWorkItem(
   input: NewWorkItemInput,
 ): Promise<WorkItem> {
-  const response = await fetch("/api/work-items", {
+  const response = await apiFetch("/api/work-items", {
     method: "POST",
-
     headers: {
       "Content-Type": "application/json",
     },
-
     body: JSON.stringify(input),
   });
 
-  if (!response.ok) {
-    const problem = await response.json().catch(() => ({}));
-
-    throw new Error(
-      problem.detail ??
-        problem.title ??
-        `Could not create work item. HTTP ${response.status}.`,
-    );
-  }
+  await ensureSuccess(response);
 
   return response.json();
 }
@@ -69,34 +51,24 @@ export async function deleteWorkItem(
     version: item.version,
   });
 
-  const response = await fetch(`/api/work-items/${item.id}?${params}`, {
+  const response = await apiFetch(`/api/work-items/${item.id}?${params}`, {
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const problem = await response.json().catch(() => ({}));
+  await ensureSuccess(response);
 
-    throw new Error(
-      problem.detail ??
-        problem.title ??
-        `Could not delete work item. HTTP ${response.status}.`,
-    );
-  }
-
-  // Successful DELETE returns 204 with no JSON body.
+  // DELETE succeeds with 204: there is no JSON body to parse.
 }
 
 export async function updateWorkItem(
   item: Pick<WorkItem, "id" | "version">,
   input: NewWorkItemInput,
 ): Promise<WorkItem> {
-  const response = await fetch(`/api/work-items/${item.id}`, {
+  const response = await apiFetch(`/api/work-items/${item.id}`, {
     method: "PUT",
-
     headers: {
       "Content-Type": "application/json",
     },
-
     body: JSON.stringify({
       ...input,
       version: item.version,
@@ -104,21 +76,16 @@ export async function updateWorkItem(
   });
 
   if (response.status === 409) {
-    throw new Error(
-      "This item changed since you opened it. Your draft has not been saved. " +
-        "Copy your changes, cancel editing, and reopen the item after the list reloads.",
+    throw new ApiError(
+      "This item changed since you opened it. " +
+        "Your draft has not been saved. " +
+        "Copy your changes, cancel editing, and reopen " +
+        "the item after the list reloads.",
+      409,
     );
   }
 
-  if (!response.ok) {
-    const problem = await response.json().catch(() => ({}));
-
-    throw new Error(
-      problem.detail ??
-        problem.title ??
-        `Could not update work item. HTTP ${response.status}.`,
-    );
-  }
+  await ensureSuccess(response);
 
   return response.json();
 }

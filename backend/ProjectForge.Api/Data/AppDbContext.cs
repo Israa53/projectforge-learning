@@ -43,8 +43,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .IsConcurrencyToken();
 
         // "HasIndex" creates an index for status and creation time.
-        item.HasIndex(x => new { x.Status, x.CreatedAt });
+        item.HasOne(x => x.Owner)
+            .WithMany()
+            .HasForeignKey(x => x.OwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
+        item.HasIndex(x => new
+        {
+            x.OwnerId,
+            x.Status,
+            x.CreatedAt
+        });
         // Login sessions.
         var session = modelBuilder.Entity<RefreshSession>();
 

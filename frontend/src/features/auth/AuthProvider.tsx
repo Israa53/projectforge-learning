@@ -139,9 +139,19 @@ export function AuthProvider({
             return;
         }
 
+        // Don't sign out while creating, editing, or deleting an item.
+        if (
+            queryClient.isMutating({
+                mutationKey: ["work-items"],
+            }) > 0
+        ) {
+            throw new Error(
+                "Please wait for your changes to finish before signing out.",
+            );
+        }
+
         const previousState = state;
 
-        // Unmount the dashboard while logout is in progress.
         setState({ status: "loading" });
 
         await queryClient.cancelQueries();
@@ -152,7 +162,6 @@ export function AuthProvider({
             queryClient.clear();
             setState({ status: "anonymous" });
         } catch (cause) {
-            // Don't pretend server-side logout succeeded if the request failed.
             setState(previousState);
             throw cause;
         }

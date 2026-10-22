@@ -1,64 +1,110 @@
-import {
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import {
-  createWorkItem,
-  updateWorkItem,
-  deleteWorkItem,
-} from './api';
+import { assertCurrentSession, getSessionRevision } from "../../lib/http";
 
-import type {
-  NewWorkItemInput,
-  WorkItem,
-} from './types';
+import { createWorkItem, updateWorkItem, deleteWorkItem } from "./api";
+
+import type { NewWorkItemInput, WorkItem } from "./types";
 
 type UpdateVariables = {
-  item: Pick<WorkItem, 'id' | 'version'>;
+  item: Pick<WorkItem, "id" | "version">;
   input: NewWorkItemInput;
 };
 
-export function useCreateWorkItem() {
+type MutationSession = {
+  revision: number;
+};
+
+async function withinCurrentSession<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  const revision = getSessionRevision();
+
+  try {
+    const result = await operation();
+
+    // Includes the time spent parsing the response body.
+    assertCurrentSession(revision);
+
+    return result;
+  } catch (cause) {
+    // An old session's response must not be treated as current.
+    assertCurrentSession(revision);
+
+    throw cause;
+  }
+}
+
+function useWorkItemInvalidation() {
   const queryClient = useQueryClient();
 
+  function onMutate(): MutationSession {
+    return {
+      revision: getSessionRevision(),
+    };
+  }
+
+  function onSuccess(
+    _data: unknown,
+    _variables: unknown,
+    session: MutationSession | undefined,
+  ) {
+    if (session === undefined || session.revision !== getSessionRevision()) {
+      return;
+    }
+
+    return queryClient.invalidateQueries({
+      queryKey: ["work-items", "list"],
+    });
+  }
+
+  return {
+    onMutate,
+    onSuccess,
+  };
+}
+
+export function useCreateWorkItem() {
+  const invalidation = useWorkItemInvalidation();
+
   return useMutation({
-    mutationFn: createWorkItem,
+    mutationKey: ["work-items", "create"],
+
+    mutationFn: (input: NewWorkItemInput) =>
+      withinCurrentSession(() => createWorkItem(input)),
+
     retry: false,
 
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ['work-items', 'list'],
-      }),
+    ...invalidation,
   });
 }
 
 export function useUpdateWorkItem() {
-  const queryClient = useQueryClient();
+  const invalidation = useWorkItemInvalidation();
 
   return useMutation({
+    mutationKey: ["work-items", "update"],
+
     mutationFn: ({ item, input }: UpdateVariables) =>
-      updateWorkItem(item, input),
+      withinCurrentSession(() => updateWorkItem(item, input)),
 
     retry: false,
 
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ['work-items', 'list'],
-      }),
+    ...invalidation,
   });
 }
 
 export function useDeleteWorkItem() {
-  const queryClient = useQueryClient();
+  const invalidation = useWorkItemInvalidation();
 
   return useMutation({
-    mutationFn: deleteWorkItem,
+    mutationKey: ["work-items", "delete"],
+
+    mutationFn: (item: Pick<WorkItem, "id" | "version">) =>
+      withinCurrentSession(() => deleteWorkItem(item)),
+
     retry: false,
 
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ['work-items', 'list'],
-      }),
+    ...invalidation,
   });
 }

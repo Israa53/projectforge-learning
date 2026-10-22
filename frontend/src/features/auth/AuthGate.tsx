@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useAuth } from "./AuthProvider";
 import { LoginPage } from "./LoginPage";
+import { useIsMutating } from "@tanstack/react-query";
 
 export function AuthGate({
     children,
@@ -11,6 +12,9 @@ export function AuthGate({
     const [logoutError, setLogoutError] = useState<string | null>(
         null,
     );
+    const pendingWrites = useIsMutating({
+        mutationKey: ["work-items"],
+    });
 
     async function handleLogout() {
         setLogoutError(null);
@@ -61,9 +65,10 @@ export function AuthGate({
                 <button
                     type="button"
                     className="button-secondary"
+                    disabled={pendingWrites > 0}
                     onClick={() => void handleLogout()}
                 >
-                    Sign out
+                    {pendingWrites > 0 ? "Finishing changes…" : "Sign out"}
                 </button>
 
                 {logoutError !== null && (

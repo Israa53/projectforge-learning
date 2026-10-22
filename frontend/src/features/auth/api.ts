@@ -61,3 +61,23 @@ export async function logout(): Promise<void> {
     notifyAuthChanged();
   });
 }
+
+export async function register(input: LoginInput): Promise<void> {
+  await waitForPendingRefresh();
+
+  await withAuthLock(async () => {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": csrfToken,
+      },
+      body: JSON.stringify(input),
+    });
+
+    await ensureSuccess(response);
+  });
+}

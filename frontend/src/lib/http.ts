@@ -36,11 +36,23 @@ export class ApiError extends Error {
 // Module state: survives component renders, but not a page reload.
 let accessToken: string | null = null;
 
+let sessionRevision = 0;
+
+export function getSessionRevision(): number {
+  return sessionRevision;
+}
+
+export function assertCurrentSession(revision: number): void {
+  if (revision !== sessionRevision) {
+    throw new DOMException("The authentication session changed.", "AbortError");
+  }
+}
 // Concurrent requests in this tab share one refresh operation.
 let refreshPromise: Promise<AuthResponse> | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+  sessionRevision += 1;
 }
 
 export async function ensureSuccess(response: Response): Promise<void> {
@@ -95,9 +107,14 @@ async function performRefresh(): Promise<AuthResponse> {
 }
 
 async function performRefreshRequest(): Promise<AuthResponse> {
+  // Remember which session started this request.
+  const revision = getSessionRevision();
+
   const csrfToken = await getCsrfToken();
 
-  // Use fetch directly. Refresh must never recursively refresh itself.
+  // Stop if the session changed while getting the CSRF token.
+  assertCurrentSession(revision);
+
   const response = await fetch("/api/auth/refresh", {
     method: "POST",
     credentials: "include",
@@ -106,8 +123,11 @@ async function performRefreshRequest(): Promise<AuthResponse> {
     },
   });
 
+  // Ignore the response if it belongs to an older session.
+  assertCurrentSession(revision);
+
   if (response.status === 401) {
-    accessToken = null;
+    setAccessToken(null);
 
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
@@ -116,6 +136,10 @@ async function performRefreshRequest(): Promise<AuthResponse> {
 
   const result = (await response.json()) as AuthResponse;
 
+  // Reading JSON is asynchronous, so check once more.
+  assertCurrentSession(revision);
+
+  // Refresh keeps the same session, so assign directly.
   accessToken = result.accessToken;
 
   return result;
@@ -127,9 +151,17 @@ export async function apiFetch(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
+  const revision = getSessionRevision();
   const tokenUsed = accessToken;
 
+  function checkRequest(): void {
+    options.signal?.throwIfAborted();
+    assertCurrentSession(revision);
+  }
+
   function send(): Promise<Response> {
+    checkRequest();
+
     const headers = new Headers(options.headers);
 
     if (accessToken !== null) {
@@ -145,29 +177,26 @@ export async function apiFetch(
     });
   }
 
-  options.signal?.throwIfAborted();
-
   let response = await send();
+
+  checkRequest();
 
   if (response.status !== 401) {
     return response;
   }
 
-  options.signal?.throwIfAborted();
-
-  // Another request may already have replaced the expired token.
   if (accessToken === null || accessToken === tokenUsed) {
     await refreshSession();
   }
 
-  // Cancelling one query must not cancel a refresh shared by other queries.
-  options.signal?.throwIfAborted();
+  checkRequest();
 
-  // Retry once. A second 401 is returned to the caller.
   response = await send();
 
+  checkRequest();
+
   if (response.status === 401) {
-    accessToken = null;
+    setAccessToken(null);
 
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }

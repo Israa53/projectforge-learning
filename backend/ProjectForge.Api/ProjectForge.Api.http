@@ -1,0 +1,6 @@
+@ProjectForge.Api_HostAddress = http://localhost:5128
+
+GET {{ProjectForge.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

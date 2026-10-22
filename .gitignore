@@ -1,0 +1,28 @@
+# Frontend dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# .NET build output
+bin/
+obj/
+TestResults/
+
+# Local database files
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor-specific files
+.vs/
+*.user
+*.suo
+
+# TypeScript build cache
+*.tsbuildinfo

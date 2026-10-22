@@ -6,7 +6,9 @@ import { WorkItemCard } from "./components/WorkItemCard";
 import { WorkItemForm } from "./features/items/WorkItemForm";
 import { DeleteWorkItem } from "./features/items/DeleteWorkItem";
 import { useWorkItems } from "./features/items/useWorkItems";
-
+import {
+  useWorkItemFilters,
+} from "./features/items/useWorkItemFilters";
 import {
   useCreateWorkItem,
   useUpdateWorkItem,
@@ -16,63 +18,27 @@ import {
   statuses,
   type NewWorkItemInput,
   type WorkItem,
-  type WorkItemFilters,
   type WorkStatus,
 } from "./features/items/types";
 
 export default function App() {
   // useState Remembers the selected filter between renders
-  const [filters, setFilters] = useState<WorkItemFilters>({
-    search: "",
-    status: "",
-    page: 1,
-    pageSize: 6,
-  });
-  const [searchDraft, setSearchDraft] = useState("");
+  const {
+    filters,
+    searchKey,
+    setSearch,
+    clearFilters,
+    changeStatus,
+    changePage,
+  } = useWorkItemFilters();
 
   const [editingItem, setEditingItem] = useState<WorkItem | null>(null);
-
   const createItem = useCreateWorkItem();
   const updateItem = useUpdateWorkItem();
   const isUpdating = updateItem.isPending;
-
   const { data, isLoading, error, reloadItems } = useWorkItems(filters);
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
 
-    setFilters((previous) => ({
-      ...previous,
-      search: searchDraft.trim(),
-      page: 1,
-    }));
-  }
-
-  function clearFilters() {
-    setSearchDraft("");
-
-    setFilters((previous) => ({
-      ...previous,
-      search: "",
-      status: "",
-      page: 1,
-    }));
-  }
-
-  function changeStatus(status: WorkStatus | "") {
-    setFilters((previous) => ({
-      ...previous,
-      status,
-      page: 1,
-    }));
-  }
-
-  function changePage(page: number) {
-    setFilters((previous) => ({
-      ...previous,
-      page,
-    }));
-  }
 
   async function handleCreate(input: NewWorkItemInput): Promise<void> {
     await createItem.mutateAsync(input);
@@ -94,18 +60,24 @@ export default function App() {
     setEditingItem(null);
   }
 
-  function handleDeleted() {
-    setFilters((previous) => ({
-      ...previous,
-      page: 1,
-    }));
-  }
-
   function cancelEditing() {
     setEditingItem(null);
     reloadItems();
   }
 
+  function handleSearch(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+
+    setSearch(String(formData.get("search") ?? ""));
+  }
+
+  function handleDeleted() {
+    changePage(1);
+  }
   const totalPages = data
     ? Math.max(1, Math.ceil(data.totalCount / data.pageSize))
     : 1;
@@ -161,12 +133,13 @@ export default function App() {
               <div className="search-field">
                 <FormField htmlFor="search" label="Search work items">
                   <input
+                    key={searchKey}
                     id="search"
+                    name="search"
                     type="search"
                     placeholder="Search title or description…"
                     maxLength={120}
-                    value={searchDraft}
-                    onChange={(event) => setSearchDraft(event.target.value)}
+                    defaultValue={filters.search}
                   />
                 </FormField>
               </div>

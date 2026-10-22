@@ -1,13 +1,16 @@
-import { useState, type FormEvent } from 'react';
-import { WorkItemCard } from './components/WorkItemCard';
-import { WorkItemForm } from './features/items/WorkItemForm';
-import { DeleteWorkItem } from './features/items/DeleteWorkItem';
-import { useWorkItems } from './features/items/useWorkItems';
+import "./features/items/WorkItems.css";
+import { FormField } from "./components/ui/FormField";
+import { Button } from "./components/ui/Button";
+import { useState, type FormEvent } from "react";
+import { WorkItemCard } from "./components/WorkItemCard";
+import { WorkItemForm } from "./features/items/WorkItemForm";
+import { DeleteWorkItem } from "./features/items/DeleteWorkItem";
+import { useWorkItems } from "./features/items/useWorkItems";
 
 import {
   useCreateWorkItem,
   useUpdateWorkItem,
-} from './features/items/useItemMutations';
+} from "./features/items/useItemMutations";
 
 import {
   statuses,
@@ -15,36 +18,30 @@ import {
   type WorkItem,
   type WorkItemFilters,
   type WorkStatus,
-} from './features/items/types';
+} from "./features/items/types";
 
 export default function App() {
   // useState Remembers the selected filter between renders
   const [filters, setFilters] = useState<WorkItemFilters>({
-    search: '',
-    status: '',
+    search: "",
+    status: "",
     page: 1,
     pageSize: 6,
   });
-  const [searchDraft, setSearchDraft] = useState('');
+  const [searchDraft, setSearchDraft] = useState("");
 
-  const [editingItem, setEditingItem] =
-    useState<WorkItem | null>(null);
+  const [editingItem, setEditingItem] = useState<WorkItem | null>(null);
 
   const createItem = useCreateWorkItem();
   const updateItem = useUpdateWorkItem();
   const isUpdating = updateItem.isPending;
 
-  const {
-    data,
-    isLoading,
-    error,
-    reloadItems,
-  } = useWorkItems(filters);
+  const { data, isLoading, error, reloadItems } = useWorkItems(filters);
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setFilters(previous => ({
+    setFilters((previous) => ({
       ...previous,
       search: searchDraft.trim(),
       page: 1,
@@ -52,18 +49,18 @@ export default function App() {
   }
 
   function clearFilters() {
-    setSearchDraft('');
+    setSearchDraft("");
 
-    setFilters(previous => ({
+    setFilters((previous) => ({
       ...previous,
-      search: '',
-      status: '',
+      search: "",
+      status: "",
       page: 1,
     }));
   }
 
-  function changeStatus(status: WorkStatus | '') {
-    setFilters(previous => ({
+  function changeStatus(status: WorkStatus | "") {
+    setFilters((previous) => ({
       ...previous,
       status,
       page: 1,
@@ -71,23 +68,19 @@ export default function App() {
   }
 
   function changePage(page: number) {
-    setFilters(previous => ({
+    setFilters((previous) => ({
       ...previous,
       page,
     }));
   }
 
-  async function handleCreate(
-    input: NewWorkItemInput
-  ): Promise<void> {
+  async function handleCreate(input: NewWorkItemInput): Promise<void> {
     await createItem.mutateAsync(input);
 
     clearFilters();
   }
 
-  async function handleSave(
-    input: NewWorkItemInput
-  ): Promise<void> {
+  async function handleSave(input: NewWorkItemInput): Promise<void> {
     if (!editingItem) {
       await handleCreate(input);
       return;
@@ -102,7 +95,7 @@ export default function App() {
   }
 
   function handleDeleted() {
-    setFilters(previous => ({
+    setFilters((previous) => ({
       ...previous,
       page: 1,
     }));
@@ -125,9 +118,7 @@ export default function App() {
           <span>ProjectForge</span>
         </div>
 
-        <span className="topbar-caption">
-          Your delivery workspace
-        </span>
+        <span className="topbar-caption">Your delivery workspace</span>
       </header>
 
       <main className="workspace">
@@ -143,7 +134,7 @@ export default function App() {
               key={
                 editingItem
                   ? `${editingItem.id}:${editingItem.version}`
-                  : 'create'
+                  : "create"
               }
               item={editingItem ?? undefined}
               onSave={handleSave}
@@ -152,7 +143,7 @@ export default function App() {
           </aside>
 
           <section
-            className="list-panel"
+            className="list-panel panel"
             aria-labelledby="work-items-heading"
           >
             <div className="section-heading">
@@ -162,90 +153,72 @@ export default function App() {
               </div>
 
               {!isLoading && error === null && data !== null && (
-                <span className="count-badge">
-                  {data.totalCount} matching
-                </span>
+                <span className="count-badge">{data.totalCount} matching</span>
               )}
             </div>
 
             <form className="filter-bar" onSubmit={handleSearch}>
               <div className="search-field">
-                <label htmlFor="search">Search work items</label>
-
-                <input
-                  id="search"
-                  type="search"
-                  placeholder="Search title or description…"
-                  maxLength={120}
-                  value={searchDraft}
-                  onChange={event =>
-                    setSearchDraft(event.target.value)
-                  }
-                />
+                <FormField htmlFor="search" label="Search work items">
+                  <input
+                    id="search"
+                    type="search"
+                    placeholder="Search title or description…"
+                    maxLength={120}
+                    value={searchDraft}
+                    onChange={(event) => setSearchDraft(event.target.value)}
+                  />
+                </FormField>
               </div>
 
               <div className="status-field">
-                <label htmlFor="status-filter">Status</label>
+                <FormField htmlFor="status-filter" label="Status">
+                  <select
+                    id="status-filter"
+                    value={filters.status}
+                    onChange={(event) =>
+                      changeStatus(event.target.value as WorkStatus | "")
+                    }
+                  >
+                    <option value="">All statuses</option>
 
-                <select
-                  id="status-filter"
-                  value={filters.status}
-                  onChange={event =>
-                    changeStatus(
-                      event.target.value as WorkStatus | ''
-                    )
-                  }
-                >
-                  <option value="">All statuses</option>
-
-                  {statuses.map(status => (
-                    // .map() Converts each status into an <option> element
-                    <option key={status} value={status}>
-                      {status === 'InProgress'
-                        ? 'In progress'
-                        : status}
-                    </option>
-                  ))}
-                </select>
+                    {statuses.map((status) => (
+                      // .map() Converts each status into an <option> element
+                      <option key={status} value={status}>
+                        {status === "InProgress" ? "In progress" : status}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
               </div>
 
-              <button type="submit">Search</button>
+              <Button type="submit">Search</Button>
 
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={clearFilters}
-              >
+              <Button type="button" variant="secondary" onClick={clearFilters}>
                 Clear
-              </button>
+              </Button>
             </form>
 
             <div className="results" aria-busy={isLoading}>
               {isLoading && (
                 <div className="feedback-panel" role="status">
-                  <span
-                    className="loading-dot"
-                    aria-hidden="true"
-                  />
+                  <span className="loading-dot" aria-hidden="true" />
                   Loading your work items…
                 </div>
               )}
 
               {!isLoading && error !== null && (
-                <div
-                  className="feedback-panel feedback-error"
-                  role="alert"
-                >
+                <div className="feedback-panel feedback-error" role="alert">
                   <h3>We couldn’t load your work.</h3>
                   <p>{error}</p>
 
-                  <button
+                  <Button
                     type="button"
-                    className="button-secondary"
+                    variant="secondary"
                     onClick={reloadItems}
                   >
                     Try again
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -258,7 +231,7 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="work-item-grid">
-                      {data.items.map(item => (
+                      {data.items.map((item) => (
                         <WorkItemCard
                           key={item.id} // Unique key helps React identify which items have changed
                           title={item.title}
@@ -268,8 +241,10 @@ export default function App() {
                           dueDate={item.dueDate}
                           actions={
                             <div className="card-actions">
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 className="item-edit-trigger"
                                 aria-label={`Edit ${item.title}`}
                                 title="Edit item"
@@ -290,7 +265,7 @@ export default function App() {
                                   <path d="M12 20h9" />
                                   <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4Z" />
                                 </svg>
-                              </button>
+                              </Button>
 
                               <DeleteWorkItem
                                 item={item}
@@ -303,34 +278,28 @@ export default function App() {
                     </div>
                   )}
 
-                  <nav
-                    className="pagination"
-                    aria-label="Pagination"
-                  >
-                    <button
+                  <nav className="pagination" aria-label="Pagination">
+                    <Button
                       type="button"
-                      className="button-secondary"
+                      variant="secondary"
                       disabled={data.page <= 1}
                       onClick={() => changePage(data.page - 1)}
                     >
                       Previous
-                    </button>
+                    </Button>
 
                     <span>
                       Page {data.page} · {totalPages} total
                     </span>
 
-                    <button
+                    <Button
                       type="button"
-                      className="button-secondary"
-                      disabled={
-                        data.page * data.pageSize >=
-                        data.totalCount
-                      }
+                      variant="secondary"
+                      disabled={data.page * data.pageSize >= data.totalCount}
                       onClick={() => changePage(data.page + 1)}
                     >
                       Next
-                    </button>
+                    </Button>
                   </nav>
                 </>
               )}

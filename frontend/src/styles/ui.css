@@ -1,0 +1,175 @@
+@layer tokens, base, ui, features;
+
+@layer ui {
+  /* Shared primitives. Features arrange them; they don't restyle them. */
+  .panel {
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-panel);
+  }
+  .eyebrow {
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    gap: var(--space-2);
+    min-height: 42px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.3;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+  .button--primary {
+    background: var(--color-primary);
+    color: var(--color-surface);
+  }
+  .button--primary:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+  .button--secondary {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+  .button--secondary:hover:not(:disabled) {
+    background: var(--color-primary-soft);
+    border-color: var(--color-focus);
+  }
+  .button--danger {
+    background: var(--color-danger);
+    color: var(--color-surface);
+  }
+  .button--danger:hover:not(:disabled) {
+    background: var(--color-danger-hover);
+  }
+  .button--ghost {
+    background: transparent;
+    color: var(--color-muted);
+  }
+  .button--ghost:hover:not(:disabled) {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+  .button--small {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+  .button--icon {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 8px;
+  }
+  .button--icon svg {
+    width: 17px;
+    height: 17px;
+  }
+  .button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .button-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .form-stack {
+    display: grid;
+    gap: 18px;
+  }
+  .field {
+    display: grid;
+    align-content: start;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+  .field > label {
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .field :is(input, select, textarea) {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-control);
+    color: var(--color-text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .field textarea {
+    min-height: 112px;
+    resize: vertical;
+  }
+  .field :is(input, select, textarea):focus-visible {
+    border-color: var(--color-primary);
+  }
+  .field :is(input, select, textarea):disabled {
+    opacity: 0.65;
+  }
+  .field [aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+  .field-hint,
+  .field-error {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .field-hint {
+    color: var(--color-muted);
+  }
+  .field-error {
+    color: var(--color-danger);
+  }
+  .notice {
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .notice--error {
+    color: var(--color-danger);
+    background: var(--color-danger-soft);
+  }
+  .notice--success {
+    color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .text-link {
+    color: var(--color-primary);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .text-link:hover {
+    text-decoration: underline;
+  }
+}

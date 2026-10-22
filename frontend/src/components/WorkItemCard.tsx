@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 
 type WorkItemCardProps = {
   title: string;
   description: string;
-  status: 'Backlog' | 'InProgress' | 'Done';
-  priority?: 'Low' | 'Medium' | 'High';
+  status: "Backlog" | "InProgress" | "Done";
+  priority?: "Low" | "Medium" | "High";
   dueDate?: string | null;
   actions?: ReactNode;
 };
@@ -18,10 +18,10 @@ export function WorkItemCard({
   actions,
 }: WorkItemCardProps) {
   return (
-    <article className="work-item-card">
+    <article className="work-item-card panel">
       <div className="card-meta">
         <span className={`status-badge status-${status}`}>
-          {status === 'InProgress' ? 'In progress' : status}
+          {status === "InProgress" ? "In progress" : status}
         </span>
 
         {priority && (
@@ -35,13 +35,11 @@ export function WorkItemCard({
       <h3>{title}</h3>
 
       <p className="card-description">
-        {description || 'No description added.'}
+        {description || "No description added."}
       </p>
 
       <div className="card-footer">
-        <span>
-          {dueDate ? `Due ${dueDate}` : 'No due date'}
-        </span>
+        <span>{dueDate ? `Due ${dueDate}` : "No due date"}</span>
 
         {actions}
       </div>

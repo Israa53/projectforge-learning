@@ -1,0 +1,36 @@
+@layer tokens, base, ui, features;
+
+@layer tokens {
+  /* Change the application theme here, not in individual screens. */
+  :root {
+    --color-background: #f3f5ef;
+    --color-surface: #fff;
+    --color-control: #fbfcfa;
+    --color-text: #172b25;
+    --color-muted: #64746a;
+    --color-border: #dce5df;
+    --color-primary: #176b50;
+    --color-primary-hover: #10543e;
+    --color-primary-soft: #eff7f0;
+    --color-danger: #a44840;
+    --color-danger-hover: #893a33;
+    --color-danger-soft: #fff2ef;
+    --color-success: #23643f;
+    --color-success-soft: #effaf3;
+    --color-warning: #805c12;
+    --color-warning-soft: #fff5dc;
+    --color-neutral: #5d6e7b;
+    --color-neutral-soft: #eef1f4;
+    --color-focus: #a5d6bd;
+    --radius-control: 10px;
+    --radius-panel: 18px;
+    --shadow-panel: 0 6px 24px rgb(30 56 43 / 5%);
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --content-width: 1240px;
+  }
+}

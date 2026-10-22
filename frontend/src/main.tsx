@@ -1,19 +1,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
 
-import {
-  QueryClient,
-  QueryClientProvider,
-} from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import App from "./App";
-
-import { ApiError } from "./lib/http";
+import { AppRoutes } from "./AppRoutes";
 import { AuthProvider } from "./features/auth/AuthProvider";
-import { AuthGate } from "./features/auth/AuthGate";
+import { ApiError } from "./lib/http";
 
-import "./index.css";
-import "./App.css";
+import "./styles/tokens.css";
+import "./styles/global.css";
+import "./styles/ui.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +18,10 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
 
       retry: (failureCount, error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return false;
+        }
+
         if (
           error instanceof ApiError &&
           error.status >= 400 &&
@@ -38,11 +39,11 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AuthGate>
-          <App />
-        </AuthGate>
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
 );

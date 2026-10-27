@@ -2,6 +2,7 @@ import "./features/items/WorkItems.css";
 import { FormField } from "./components/ui/FormField";
 import { Button } from "./components/ui/Button";
 import { useState, type FormEvent } from "react";
+import { Link, useLocation } from "react-router";
 import { WorkItemCard } from "./components/WorkItemCard";
 import { WorkItemForm } from "./features/items/WorkItemForm";
 import { DeleteWorkItem } from "./features/items/DeleteWorkItem";
@@ -37,7 +38,7 @@ export default function App() {
   const updateItem = useUpdateWorkItem();
   const isUpdating = updateItem.isPending;
   const { data, isLoading, error, reloadItems } = useWorkItems(filters);
-
+  const location = useLocation();
 
 
   async function handleCreate(input: NewWorkItemInput): Promise<void> {
@@ -214,6 +215,29 @@ export default function App() {
                           dueDate={item.dueDate}
                           actions={
                             <div className="card-actions">
+                              <Link className="item-view-trigger"
+                                to={{
+                                  pathname: `/work-items/${item.id}`,
+                                  search: location.search,
+                                }}
+                                aria-label={`View details for ${item.title}`}
+                                title="View details"
+                              >
+                                <svg
+                                  width="17"
+                                  height="17"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.7"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                                  <circle cx="12" cy="12" r="3" />
+                                </svg>
+                              </Link>
                               <Button
                                 type="button"
                                 variant="ghost"

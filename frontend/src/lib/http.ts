@@ -25,11 +25,18 @@ type ProblemDetails = {
 export class ApiError extends Error {
   readonly status: number;
 
-  constructor(message: string, status: number) {
+  readonly fieldErrors: Record<string, string[]>;
+
+  constructor(
+    message: string,
+    status: number,
+    fieldErrors: Record<string, string[]> = {},
+  ) {
     super(message);
 
     this.name = "ApiError";
     this.status = status;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -74,6 +81,7 @@ export async function ensureSuccess(response: Response): Promise<void> {
       problem?.title ||
       `Request failed. HTTP ${response.status}.`,
     response.status,
+    problem?.errors ?? {},
   );
 }
 

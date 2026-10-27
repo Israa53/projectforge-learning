@@ -89,3 +89,16 @@ export async function updateWorkItem(
 
   return response.json();
 }
+
+export async function getWorkItem(
+  id: string,
+  signal?: AbortSignal,
+): Promise<WorkItem> {
+  const response = await apiFetch(`/api/work-items/${encodeURIComponent(id)}`, {
+    signal,
+  });
+
+  await ensureSuccess(response);
+
+  return response.json();
+}

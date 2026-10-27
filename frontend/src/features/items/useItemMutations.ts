@@ -54,7 +54,7 @@ function useWorkItemInvalidation() {
     }
 
     return queryClient.invalidateQueries({
-      queryKey: ["work-items", "list"],
+      queryKey: ["work-items"],
     });
   }
 

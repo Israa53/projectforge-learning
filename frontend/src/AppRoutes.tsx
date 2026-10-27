@@ -8,6 +8,7 @@ import App from "./App";
 import { AuthGate } from "./features/auth/AuthGate";
 import { useAuth } from "./features/auth/AuthProvider";
 import { LoginPage } from "./features/auth/LoginPage";
+import { WorkItemDetails } from "./features/items/WorkItemDetails";
 
 function getReturnPath(state: unknown): string {
   if (
@@ -26,7 +27,10 @@ function getReturnPath(state: unknown): string {
   if (
     from === "/work-items" ||
     from.startsWith("/work-items?") ||
-    from.startsWith("/work-items#")
+    from.startsWith("/work-items#") ||
+    /^\/work-items\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:[?#].*)?$/i.test(
+      from,
+    )
   ) {
     return from;
   }
@@ -159,7 +163,16 @@ export function AppRoutes() {
           </RequireAuth>
         }
       />
-
+      <Route
+        path="/work-items/:id"
+        element={
+          <RequireAuth>
+            <AuthGate>
+              <WorkItemDetails />
+            </AuthGate>
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

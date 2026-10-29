@@ -8,6 +8,7 @@ import {
 import { Button } from "../../components/ui/Button";
 import { FormField } from "../../components/ui/FormField";
 import { ApiError } from "../../lib/http";
+import { useWarnBeforeUnload } from "../../hooks/useWarnBeforeUnload";
 
 import {
   statuses,
@@ -21,6 +22,7 @@ type WorkItemFormProps = {
   item?: WorkItem;
   onSave: (input: NewWorkItemInput) => Promise<void>;
   onCancel?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
 };
 
 type FieldName =
@@ -94,8 +96,9 @@ export function WorkItemForm({
   item,
   onSave,
   onCancel,
+  onDirtyChange,
 }: WorkItemFormProps) {
-  const [draft, setDraft] =
+  const [initialDraft] =
     useState<NewWorkItemInput>(() =>
       item
         ? {
@@ -107,6 +110,30 @@ export function WorkItemForm({
         }
         : { ...emptyDraft },
     );
+
+  const [draft, setDraft] =
+    useState<NewWorkItemInput>(() => ({
+      ...initialDraft,
+    }));
+
+  const isDirty =
+    draft.title !== initialDraft.title ||
+    draft.description !== initialDraft.description ||
+    draft.status !== initialDraft.status ||
+    draft.priority !== initialDraft.priority ||
+    draft.dueDate !== initialDraft.dueDate;
+
+  useWarnBeforeUnload(isDirty);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    return () => {
+      onDirtyChange?.(false);
+    };
+  }, [onDirtyChange]);
 
   const [isSaving, setIsSaving] = useState(false);
 

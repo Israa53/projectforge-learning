@@ -36,9 +36,13 @@ export default function App() {
   const [editingItem, setEditingItem] = useState<WorkItem | null>(null);
   const createItem = useCreateWorkItem();
   const updateItem = useUpdateWorkItem();
-  const isUpdating = updateItem.isPending;
+  const isSavingItem = createItem.isPending || updateItem.isPending;
   const location = useLocation();
   const queryClient = useQueryClient();
+  const [
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+  ] = useState(false);
   const {
     data,
     isLoading,
@@ -68,7 +72,36 @@ export default function App() {
     setEditingItem(null);
   }
 
+  function confirmDiscardDraft(): boolean {
+    return (
+      !hasUnsavedChanges ||
+      window.confirm("Discard your unsaved changes?")
+    );
+  }
+
+  function startEditing(item: WorkItem) {
+    if (
+      isSavingItem ||
+      editingItem?.id === item.id
+    ) {
+      return;
+    }
+
+    if (!confirmDiscardDraft()) {
+      return;
+    }
+
+    setEditingItem(item);
+  }
+
   function cancelEditing() {
+    if (
+      isSavingItem ||
+      !confirmDiscardDraft()
+    ) {
+      return;
+    }
+
     setEditingItem(null);
     reloadItems();
   }
@@ -126,6 +159,7 @@ export default function App() {
               item={editingItem ?? undefined}
               onSave={handleSave}
               onCancel={cancelEditing}
+              onDirtyChange={setHasUnsavedChanges}
             />
           </aside>
 
@@ -270,8 +304,8 @@ export default function App() {
                                 className="item-edit-trigger"
                                 aria-label={`Edit ${item.title}`}
                                 title="Edit item"
-                                disabled={isUpdating}
-                                onClick={() => setEditingItem(item)}
+                                disabled={isSavingItem}
+                                onClick={() => startEditing(item)}
                               >
                                 <svg
                                   width="17"

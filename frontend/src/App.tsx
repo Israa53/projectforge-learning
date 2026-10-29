@@ -6,10 +6,10 @@ import { Link, useLocation } from "react-router";
 import { WorkItemCard } from "./components/WorkItemCard";
 import { WorkItemForm } from "./features/items/WorkItemForm";
 import { DeleteWorkItem } from "./features/items/DeleteWorkItem";
+import { useQueryClient } from "@tanstack/react-query";
 import { useWorkItems } from "./features/items/useWorkItems";
-import {
-  useWorkItemFilters,
-} from "./features/items/useWorkItemFilters";
+import { workItemQueryOptions } from "./features/items/useWorkItem";
+import { useWorkItemFilters } from "./features/items/useWorkItemFilters";
 import {
   useCreateWorkItem,
   useUpdateWorkItem,
@@ -37,9 +37,16 @@ export default function App() {
   const createItem = useCreateWorkItem();
   const updateItem = useUpdateWorkItem();
   const isUpdating = updateItem.isPending;
-  const { data, isLoading, error, reloadItems } = useWorkItems(filters);
   const location = useLocation();
-
+  const queryClient = useQueryClient();
+  const {
+    data,
+    isLoading,
+    error,
+    reloadItems,
+    isRefreshing,
+    isPlaceholderData,
+  } = useWorkItems(filters);
 
   async function handleCreate(input: NewWorkItemInput): Promise<void> {
     await createItem.mutateAsync(input);
@@ -79,6 +86,13 @@ export default function App() {
   function handleDeleted() {
     changePage(1);
   }
+
+  function prefetchWorkItem(id: string) {
+    void queryClient.prefetchQuery(
+      workItemQueryOptions(id),
+    );
+  }
+
   const totalPages = data
     ? Math.max(1, Math.ceil(data.totalCount / data.pageSize))
     : 1;
@@ -173,7 +187,15 @@ export default function App() {
               </Button>
             </form>
 
-            <div className="results" aria-busy={isLoading}>
+            {isRefreshing && (
+              <p className="results-update" role="status">
+                {isPlaceholderData
+                  ? "Updating results… showing previous results."
+                  : "Refreshing results…"}
+              </p>
+            )}
+
+            <div className="results" aria-busy={isLoading || isRefreshing}>
               {isLoading && (
                 <div className="feedback-panel" role="status">
                   <span className="loading-dot" aria-hidden="true" />
@@ -196,7 +218,7 @@ export default function App() {
                 </div>
               )}
 
-              {!isLoading && error === null && data !== null && (
+              {!isLoading && !isPlaceholderData && error === null && data !== null && (
                 <>
                   {data.items.length === 0 ? (
                     <div className="feedback-panel">
@@ -215,13 +237,16 @@ export default function App() {
                           dueDate={item.dueDate}
                           actions={
                             <div className="card-actions">
-                              <Link className="item-view-trigger"
+                              <Link
+                                className="item-view-trigger"
                                 to={{
                                   pathname: `/work-items/${item.id}`,
                                   search: location.search,
                                 }}
                                 aria-label={`View details for ${item.title}`}
                                 title="View details"
+                                onMouseEnter={() => prefetchWorkItem(item.id)}
+                                onFocus={() => prefetchWorkItem(item.id)}
                               >
                                 <svg
                                   width="17"
@@ -279,7 +304,7 @@ export default function App() {
                     <Button
                       type="button"
                       variant="secondary"
-                      disabled={data.page <= 1}
+                      disabled={isPlaceholderData || data.page <= 1}
                       onClick={() => changePage(data.page - 1)}
                     >
                       Previous
@@ -292,7 +317,10 @@ export default function App() {
                     <Button
                       type="button"
                       variant="secondary"
-                      disabled={data.page * data.pageSize >= data.totalCount}
+                      disabled={
+                        isPlaceholderData ||
+                        data.page * data.pageSize >= data.totalCount
+                      }
                       onClick={() => changePage(data.page + 1)}
                     >
                       Next

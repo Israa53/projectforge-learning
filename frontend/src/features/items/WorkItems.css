@@ -2,6 +2,11 @@
 
 @layer features {
   /* Work-item layout, card metadata, and delete confirmation only. */
+  .results-update {
+    margin: 0 0 12px;
+    color: var(--color-muted);
+    font-size: 12px;
+  }
   .item-view-trigger {
     display: inline-flex;
     align-items: center;
@@ -23,7 +28,7 @@
     width: 17px;
     height: 17px;
   }
-  
+
   .detail-workspace {
     max-width: 820px;
   }

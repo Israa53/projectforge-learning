@@ -1,4 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { getWorkItems } from "./api";
 import type { WorkItemFilters } from "./types";
@@ -10,6 +14,8 @@ export function useWorkItems(filters: WorkItemFilters) {
     queryKey: ["work-items", "list", filters],
 
     queryFn: ({ signal }) => getWorkItems(filters, signal),
+
+    placeholderData: keepPreviousData,
   });
 
   function reloadItems() {
@@ -24,5 +30,6 @@ export function useWorkItems(filters: WorkItemFilters) {
     error: query.error?.message ?? null,
     reloadItems,
     isRefreshing: query.isFetching && !query.isPending,
+    isPlaceholderData: query.isPlaceholderData,
   };
 }

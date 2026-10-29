@@ -172,4 +172,28 @@
   .text-link:hover {
     text-decoration: underline;
   }
+
+  .confirm-dialog {
+    width: min(440px, calc(100vw - 32px));
+    margin: auto;
+    padding: 28px;
+    color: var(--color-text);
+  }
+
+  .confirm-dialog::backdrop {
+    background: rgb(23 43 37 / 45%);
+  }
+
+  .confirm-dialog p {
+    margin: 12px 0 24px;
+    color: var(--color-muted);
+    line-height: 1.7;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 }

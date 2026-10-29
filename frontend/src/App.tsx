@@ -2,7 +2,7 @@ import "./features/items/WorkItems.css";
 import { FormField } from "./components/ui/FormField";
 import { Button } from "./components/ui/Button";
 import { useState, type FormEvent } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useBlocker } from "react-router";
 import { WorkItemCard } from "./components/WorkItemCard";
 import { WorkItemForm } from "./features/items/WorkItemForm";
 import { DeleteWorkItem } from "./features/items/DeleteWorkItem";
@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkItems } from "./features/items/useWorkItems";
 import { workItemQueryOptions } from "./features/items/useWorkItem";
 import { useWorkItemFilters } from "./features/items/useWorkItemFilters";
+import { UnsavedChangesDialog } from "./components/ui/UnsavedChangesDialog";
 import {
   useCreateWorkItem,
   useUpdateWorkItem,
@@ -43,6 +44,11 @@ export default function App() {
     hasUnsavedChanges,
     setHasUnsavedChanges,
   ] = useState(false);
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges &&
+      currentLocation.pathname !== nextLocation.pathname,
+  );
   const {
     data,
     isLoading,
@@ -132,6 +138,12 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {blocker.state === "blocked" && (
+        <UnsavedChangesDialog
+          onStay={() => blocker.reset()}
+          onLeave={() => blocker.proceed()}
+        />
+      )}
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">P</span>

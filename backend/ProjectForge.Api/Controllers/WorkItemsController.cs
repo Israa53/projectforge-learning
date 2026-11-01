@@ -1,38 +1,25 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ProjectForge.Api.Contracts;
-using ProjectForge.Api.Data;
-using ProjectForge.Api.Models;
+using ProjectForge.Api.Services;
 
 namespace ProjectForge.Api.Controllers;
 
 [ApiController]
 [Route("api/work-items")]
 [Authorize]
-public class WorkItemsController : ControllerBase
+public class WorkItemsController(
+    WorkItemService service
+) : ControllerBase
 {
-    private readonly AppDbContext _db;
-
-    // ASP.NET Core injects the registered database context into the controller.
-    public WorkItemsController(AppDbContext db)
-    {
-        _db = db;
-    }
-
-    // MapInboundClaims is false in our JWT configuration,
-    // so the user ID is available under the original "sub" claim.
     private string? CurrentUserId =>
         User.FindFirstValue("sub");
 
-    // POST: api/work-items
-    [HttpPost]
-    public async Task<ActionResult<WorkItemDto>> Create(
-        // Bind the JSON request body to the work-item input DTO.
-        [FromBody] WorkItemInput input,
-        // Allows database work to stop if the client disconnects.
-        CancellationToken cancellationToken)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<WorkItemDto>>> GetAll(
+        [FromQuery] ListQuery input,
+        CancellationToken ct)
     {
         var userId = CurrentUserId;
 
@@ -41,121 +28,71 @@ public class WorkItemsController : ControllerBase
             return Unauthorized();
         }
 
-        var item = new WorkItem
+        var result = await service.GetAllAsync(
+            userId,
+            input,
+            ct
+        );
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<WorkItemDto>> GetById(
+        Guid id,
+        CancellationToken ct)
+    {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
         {
-            OwnerId = userId,
-            Title = input.Title.Trim(),
-            Description = input.Description.Trim(),
-            Status = input.Status,
-            Priority = input.Priority,
-            DueDate = input.DueDate
-        };
+            return Unauthorized();
+        }
 
-        // Add starts tracking the new entity; SaveChangesAsync persists it.
-        _db.WorkItems.Add(item);
+        var item = await service.GetByIdAsync(
+            userId,
+            id,
+            ct
+        );
 
-        await _db.SaveChangesAsync(cancellationToken);
+        return item is null
+            ? NotFound()
+            : Ok(item);
+    }
+
+    [HttpPost]
+    [ProducesResponseType(
+        typeof(WorkItemDto),
+        StatusCodes.Status201Created)]
+    public async Task<ActionResult<WorkItemDto>> Create(
+        [FromBody] WorkItemInput input,
+        CancellationToken ct)
+    {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+        var item = await service.CreateAsync(
+            userId,
+            input,
+            ct
+        );
 
         return CreatedAtAction(
             nameof(GetById),
             new { id = item.Id },
-            WorkItemDto.From(item)
+            item
         );
     }
 
-    // GET: api/work-items
-    [HttpGet]
-    public async Task<ActionResult<PagedResult<WorkItemDto>>> GetAll(
-        [FromQuery] ListQuery input,
-        CancellationToken cancellationToken)
-    {
-        var userId = CurrentUserId;
-
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            return Unauthorized();
-        }
-
-        // Apply ownership before search, counting, or pagination.
-        var query = _db.WorkItems
-            .AsNoTracking()
-            .Where(item => item.OwnerId == userId);
-
-        // Filter by the search term when one was provided.
-        if (!string.IsNullOrWhiteSpace(input.Search))
-        {
-            var search = input.Search.Trim().ToLower();
-
-            query = query.Where(item =>
-                item.Title.ToLower().Contains(search) ||
-                item.Description.ToLower().Contains(search)
-            );
-        }
-
-        if (input.Status is not null)
-        {
-            query = query.Where(
-                item => item.Status == input.Status
-            );
-        }
-
-        // Count matching items before applying pagination.
-        var totalCount = await query.CountAsync(
-            cancellationToken
-        );
-
-        // Sort consistently, then select only the requested page.
-        var items = await query
-            .OrderByDescending(item => item.CreatedAt)
-            .ThenBy(item => item.Id)
-            .Skip((input.Page - 1) * input.PageSize)
-            .Take(input.PageSize)
-            .ToListAsync(cancellationToken);
-
-        return Ok(new PagedResult<WorkItemDto>(
-            items.Select(WorkItemDto.From).ToList(),
-            totalCount,
-            input.Page,
-            input.PageSize
-        ));
-    }
-
-    // GET: api/work-items/{id}
-    [HttpGet("{id:guid}")]
-    public async Task<ActionResult<WorkItemDto>> GetById(
-        Guid id,
-        CancellationToken cancellationToken)
-    {
-        var userId = CurrentUserId;
-
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            return Unauthorized();
-        }
-
-        var item = await _db.WorkItems
-            .AsNoTracking()
-            .SingleOrDefaultAsync(
-                item =>
-                    item.Id == id &&
-                    item.OwnerId == userId,
-                cancellationToken
-            );
-
-        if (item is null)
-        {
-            return NotFound();
-        }
-
-        return Ok(WorkItemDto.From(item));
-    }
-
-    // PUT: api/work-items/{id}
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<WorkItemDto>> Update(
         Guid id,
         [FromBody] UpdateWorkItemInput input,
-        CancellationToken cancellationToken)
+        CancellationToken ct)
     {
         var userId = CurrentUserId;
 
@@ -164,50 +101,37 @@ public class WorkItemsController : ControllerBase
             return Unauthorized();
         }
 
-        var item = await _db.WorkItems
-            .SingleOrDefaultAsync(
-                item =>
-                    item.Id == id &&
-                    item.OwnerId == userId,
-                cancellationToken
-            );
+        var result = await service.UpdateAsync(
+            userId,
+            id,
+            input,
+            ct
+        );
 
-        if (item is null)
+        return result.Status switch
         {
-            return NotFound();
-        }
+            WorkItemWriteStatus.Success =>
+                Ok(result.Item),
 
-        if (item.Version != input.Version)
-        {
-            return VersionConflict();
-        }
+            WorkItemWriteStatus.NotFound =>
+                NotFound(),
 
-        item.Title = input.Title.Trim();
-        item.Description = input.Description.Trim();
-        item.Status = input.Status;
-        item.Priority = input.Priority;
-        item.DueDate = input.DueDate;
-        item.UpdatedAt = DateTime.UtcNow;
-        item.Version = Guid.NewGuid();
+            WorkItemWriteStatus.VersionConflict =>
+                VersionConflict(),
 
-        try
-        {
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return VersionConflict();
-        }
-
-        return Ok(WorkItemDto.From(item));
+            _ => throw new InvalidOperationException(
+                "Unexpected write status."
+            )
+        };
     }
 
-    // DELETE: api/work-items/{id}
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(
         Guid id,
         [FromQuery] Guid? version,
-        CancellationToken cancellationToken)
+        CancellationToken ct)
     {
         var userId = CurrentUserId;
 
@@ -219,50 +143,41 @@ public class WorkItemsController : ControllerBase
         if (version is null)
         {
             return Problem(
-                statusCode: StatusCodes.Status400BadRequest,
+                statusCode: 400,
                 title: "Version is required",
                 detail:
                     "Provide the item's current version in the query string."
             );
         }
 
-        var item = await _db.WorkItems
-            .SingleOrDefaultAsync(
-                item =>
-                    item.Id == id &&
-                    item.OwnerId == userId,
-                cancellationToken
-            );
+        var result = await service.DeleteAsync(
+            userId,
+            id,
+            version.Value,
+            ct
+        );
 
-        if (item is null)
+        return result switch
         {
-            return NotFound();
-        }
+            WorkItemWriteStatus.Success =>
+                NoContent(),
 
-        if (item.Version != version.Value)
-        {
-            return VersionConflict();
-        }
+            WorkItemWriteStatus.NotFound =>
+                NotFound(),
 
-        _db.WorkItems.Remove(item);
+            WorkItemWriteStatus.VersionConflict =>
+                VersionConflict(),
 
-        try
-        {
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return VersionConflict();
-        }
-
-        // Successful DELETE returns 204 No Content with no response body.
-        return NoContent();
+            _ => throw new InvalidOperationException(
+                "Unexpected write status."
+            )
+        };
     }
 
     private ObjectResult VersionConflict()
     {
         return Problem(
-            statusCode: StatusCodes.Status409Conflict,
+            statusCode: 409,
             title: "This item changed",
             detail:
                 "Reload the latest item before editing or deleting it."

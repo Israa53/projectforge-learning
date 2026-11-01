@@ -9,6 +9,7 @@ using Microsoft.OpenApi;
 using ProjectForge.Api.Auth;
 using ProjectForge.Api.Data;
 using ProjectForge.Api.Models;
+using ProjectForge.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -152,7 +153,7 @@ builder.Services.AddOpenApi(options =>
         return Task.CompletedTask;
     });
 });
-
+builder.Services.AddScoped<WorkItemService>();
 // Build the configured services and middleware into the web application.
 var app = builder.Build();
 

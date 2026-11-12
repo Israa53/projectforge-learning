@@ -43,3 +43,45 @@ jobs:
           dotnet-version: "10.0.x"
 
       - run: dotnet test backend/ProjectForge.Api.Tests/ProjectForge.Api.Tests.csproj --configuration Release
+
+  browser:
+    name: Playwright browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create temporary HTTPS certificate
+        shell: bash
+        run: |
+          certificate_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$certificate_password"
+          echo "E2E_CERT_PASSWORD=$certificate_password" >> "$GITHUB_ENV"
+          dotnet dev-certs https --export-path "$RUNNER_TEMP/projectforge-e2e.pfx" --password "$certificate_password"
+
+      - name: Run browser tests
+        env:
+          Kestrel__Certificates__Default__Path: ${{ runner.temp }}/projectforge-e2e.pfx
+          Kestrel__Certificates__Default__Password: ${{ env.E2E_CERT_PASSWORD }}
+        run: npm run test:e2e

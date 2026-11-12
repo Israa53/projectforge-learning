@@ -1,15 +1,10 @@
-import process from "node:process";
 import { expect, test } from "@playwright/test";
-
+import { createTestAccount } from "./helpers/createTestAccount";
 test("signs in and restores the session after a full reload", async ({
   page,
 }) => {
-  const email = process.env.E2E_EMAIL;
-  const password = process.env.E2E_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error("Set E2E_EMAIL and E2E_PASSWORD before running this test.");
-  }
+  
+  const { email, password } = await createTestAccount();
 
   await page.goto("/work-items");
   await expect(page).toHaveURL(/\/login(?:[?#].*)?$/);

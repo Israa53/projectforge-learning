@@ -1,14 +1,9 @@
 import { randomUUID } from "node:crypto";
-import process from "node:process";
+import { createTestAccount } from "./helpers/createTestAccount";
 import { expect, test } from "@playwright/test";
 
 test("creates, views, edits, and deletes a work item", async ({ page }) => {
-  const email = process.env.E2E_EMAIL;
-  const password = process.env.E2E_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error("Set E2E_EMAIL and E2E_PASSWORD before running this test.");
-  }
+  const { email, password } = await createTestAccount();
 
   const title = `E2E invoice ${randomUUID().slice(0, 8)}`;
   const updatedTitle = `${title} - updated`;

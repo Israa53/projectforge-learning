@@ -1,18 +1,19 @@
-# Frontend dependencies and build output
+# Frontend dependencies and generated output
 node_modules/
 dist/
 coverage/
+playwright-report/
+test-results/
+playwright-output.txt
+playwright-result.json
 
-# .NET build output
+# .NET build and test output
 bin/
 obj/
 TestResults/
 
-# Local database files
-*.db
-*.db-shm
-*.db-wal
-*.db-journal
+# SQLite databases and their temporary files
+*.db*
 
 # Local environment files
 .env

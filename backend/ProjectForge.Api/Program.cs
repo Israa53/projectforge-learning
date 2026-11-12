@@ -157,6 +157,18 @@ builder.Services.AddScoped<WorkItemService>();
 // Build the configured services and middleware into the web application.
 var app = builder.Build();
 
+
+// Initialize only the browser-test database.
+if (app.Environment.IsEnvironment("E2E"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+
+    var db = scope.ServiceProvider
+        .GetRequiredService<AppDbContext>();
+
+    await db.Database.MigrateAsync();
+}
+
 // Keep exception and status-code responses consistent, then apply request policies
 // before the controllers handle each request.
 app.UseExceptionHandler();

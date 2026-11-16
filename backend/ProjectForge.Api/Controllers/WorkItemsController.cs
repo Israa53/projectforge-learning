@@ -15,6 +15,26 @@ public class WorkItemsController(
 {
     private string? CurrentUserId =>
         User.FindFirstValue("sub");
+    [HttpGet("stats")]
+    [ProducesResponseType(
+        typeof(WorkItemStatsDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+
+    public async Task<ActionResult<WorkItemStatsDto>> GetStats(
+        CancellationToken ct)
+    {
+        var userId = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await service.GetStatsAsync(userId, ct);
+
+        return Ok(result);
+    }
 
     [HttpGet]
     public async Task<ActionResult<PagedResult<WorkItemDto>>> GetAll(

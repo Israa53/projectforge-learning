@@ -2,6 +2,7 @@ import "./features/items/WorkItems.css";
 import { FormField } from "./components/ui/FormField";
 import { Button } from "./components/ui/Button";
 import { useState, type FormEvent } from "react";
+import { useDraftGuard } from "./features/auth/draftGuard";
 import { Link, useLocation, useBlocker } from "react-router";
 import { WorkItemCard } from "./components/WorkItemCard";
 import { WorkItemForm } from "./features/items/WorkItemForm";
@@ -11,6 +12,7 @@ import { useWorkItems } from "./features/items/useWorkItems";
 import { workItemQueryOptions } from "./features/items/useWorkItem";
 import { useWorkItemFilters } from "./features/items/useWorkItemFilters";
 import { UnsavedChangesDialog } from "./components/ui/UnsavedChangesDialog";
+import { WorkItemStatsPanel } from "./features/items/WorkItemStatsPanel";
 import {
   useCreateWorkItem,
   useUpdateWorkItem,
@@ -40,10 +42,7 @@ export default function App() {
   const isSavingItem = createItem.isPending || updateItem.isPending;
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [
-    hasUnsavedChanges,
-    setHasUnsavedChanges,
-  ] = useState(false);
+  const { hasUnsavedChanges, setHasUnsavedChanges } = useDraftGuard();
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       hasUnsavedChanges &&
@@ -160,6 +159,8 @@ export default function App() {
           <p>Capture your next task and keep delivery moving.</p>
         </header>
 
+        <WorkItemStatsPanel />
+
         <div className="dashboard">
           <aside className="editor-column">
             <WorkItemForm
@@ -185,7 +186,7 @@ export default function App() {
                 <p>Find and focus on the work that matters.</p>
               </div>
 
-              {!isLoading && error === null && data !== null && (
+              {!isLoading && !isPlaceholderData && error === null && data !== null && (
                 <span className="count-badge">{data.totalCount} matching</span>
               )}
             </div>
@@ -264,115 +265,114 @@ export default function App() {
                 </div>
               )}
 
-              {!isLoading && !isPlaceholderData && error === null && data !== null && (
-                <>
-                  {data.items.length === 0 ? (
-                    <div className="feedback-panel">
-                      <h3>No work items found.</h3>
-                      <p>Create an item or adjust your filters.</p>
-                    </div>
-                  ) : (
-                    <div className="work-item-grid">
-                      {data.items.map((item) => (
-                        <WorkItemCard
-                          key={item.id} // Unique key helps React identify which items have changed
-                          title={item.title}
-                          description={item.description}
-                          status={item.status}
-                          priority={item.priority}
-                          dueDate={item.dueDate}
-                          actions={
-                            <div className="card-actions">
-                              <Link
-                                className="item-view-trigger"
-                                to={{
-                                  pathname: `/work-items/${item.id}`,
-                                  search: location.search,
-                                }}
-                                aria-label={`View details for ${item.title}`}
-                                title="View details"
-                                onMouseEnter={() => prefetchWorkItem(item.id)}
-                                onFocus={() => prefetchWorkItem(item.id)}
+              {!isLoading && error === null && data !== null && (<>
+                {data.items.length === 0 ? (
+                  <div className="feedback-panel">
+                    <h3>No work items found.</h3>
+                    <p>Create an item or adjust your filters.</p>
+                  </div>
+                ) : (
+                  <div className="work-item-grid">
+                    {data.items.map((item) => (
+                      <WorkItemCard
+                        key={item.id} // Unique key helps React identify which items have changed
+                        title={item.title}
+                        description={item.description}
+                        status={item.status}
+                        priority={item.priority}
+                        dueDate={item.dueDate}
+                        actions={
+                          <div className="card-actions">
+                            <Link
+                              className="item-view-trigger"
+                              to={{
+                                pathname: `/work-items/${item.id}`,
+                                search: location.search,
+                              }}
+                              aria-label={`View details for ${item.title}`}
+                              title="View details"
+                              onMouseEnter={() => prefetchWorkItem(item.id)}
+                              onFocus={() => prefetchWorkItem(item.id)}
+                            >
+                              <svg
+                                width="17"
+                                height="17"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
                               >
-                                <svg
-                                  width="17"
-                                  height="17"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="1.7"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  aria-hidden="true"
-                                >
-                                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                                  <circle cx="12" cy="12" r="3" />
-                                </svg>
-                              </Link>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="item-edit-trigger"
-                                aria-label={`Edit ${item.title}`}
-                                title="Edit item"
-                                disabled={isSavingItem}
-                                onClick={() => startEditing(item)}
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                            </Link>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="item-edit-trigger"
+                              aria-label={`Edit ${item.title}`}
+                              title="Edit item"
+                              disabled={isSavingItem}
+                              onClick={() => startEditing(item)}
+                            >
+                              <svg
+                                width="17"
+                                height="17"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
                               >
-                                <svg
-                                  width="17"
-                                  height="17"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="1.7"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  aria-hidden="true"
-                                >
-                                  <path d="M12 20h9" />
-                                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4Z" />
-                                </svg>
-                              </Button>
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4Z" />
+                              </svg>
+                            </Button>
 
-                              <DeleteWorkItem
-                                item={item}
-                                onDeleted={handleDeleted}
-                              />
-                            </div>
-                          }
-                        />
-                      ))}
-                    </div>
-                  )}
+                            <DeleteWorkItem
+                              item={item}
+                              onDeleted={handleDeleted}
+                            />
+                          </div>
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
 
-                  <nav className="pagination" aria-label="Pagination">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={isPlaceholderData || data.page <= 1}
-                      onClick={() => changePage(data.page - 1)}
-                    >
-                      Previous
-                    </Button>
+                <nav className="pagination" aria-label="Pagination">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isPlaceholderData || data.page <= 1}
+                    onClick={() => changePage(data.page - 1)}
+                  >
+                    Previous
+                  </Button>
 
-                    <span>
-                      Page {data.page} · {totalPages} total
-                    </span>
+                  <span>
+                    Page {data.page} · {totalPages} total
+                  </span>
 
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={
-                        isPlaceholderData ||
-                        data.page * data.pageSize >= data.totalCount
-                      }
-                      onClick={() => changePage(data.page + 1)}
-                    >
-                      Next
-                    </Button>
-                  </nav>
-                </>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={
+                      isPlaceholderData ||
+                      data.page * data.pageSize >= data.totalCount
+                    }
+                    onClick={() => changePage(data.page + 1)}
+                  >
+                    Next
+                  </Button>
+                </nav>
+              </>
               )}
             </div>
           </section>

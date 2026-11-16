@@ -5,14 +5,12 @@ export type NewWorkItemInput = Pick<
   "title" | "description" | "status" | "priority" | "dueDate"
 >;
 export type Priority = "Low" | "Medium" | "High";
-
 export interface WorkItemSummary {
   id: string;
   title: string;
   description: string;
   status: WorkStatus;
 }
-
 export interface WorkItem extends WorkItemSummary {
   priority: Priority;
   dueDate: string | null;
@@ -20,17 +18,22 @@ export interface WorkItem extends WorkItemSummary {
   updatedAt: string;
   version: string;
 }
-
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;
   page: number;
   pageSize: number;
 }
-
 export interface WorkItemFilters {
   search: string;
-  status: WorkStatus | '';
+  status: WorkStatus | "";
   page: number;
   pageSize: number;
 }
+
+export type WorkItemStats = {
+  total: number;
+  backlog: number;
+  inProgress: number;
+  done: number;
+};

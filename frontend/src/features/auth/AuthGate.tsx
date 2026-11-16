@@ -1,17 +1,31 @@
-import { Button } from "../../components/ui/Button";
 import { useState, type ReactNode } from "react";
-import { useAuth } from "./AuthProvider";
 import { useIsMutating } from "@tanstack/react-query";
 import { Navigate } from "react-router";
 
+import { Button } from "../../components/ui/Button";
+import { useAuth } from "./AuthProvider";
+import { DraftGuardContext } from "./draftGuard";
+
 export function AuthGate({ children }: { children: ReactNode }) {
   const { state, logout, retrySession } = useAuth();
+
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   const pendingWrites = useIsMutating({
     mutationKey: ["work-items"],
   });
 
   async function handleLogout() {
+    if (pendingWrites > 0) return;
+
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("Discard your unsaved changes and sign out?")
+    ) {
+      return;
+    }
+
     setLogoutError(null);
 
     try {
@@ -53,27 +67,31 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="workspace-layout">
-      <div className="session-bar">
-        <span>{state.user.email}</span>
+    <DraftGuardContext.Provider
+      value={{ hasUnsavedChanges, setHasUnsavedChanges }}
+    >
+      <div className="workspace-layout">
+        <div className="session-bar">
+          <span>{state.user.email}</span>
 
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={pendingWrites > 0}
-          onClick={() => void handleLogout()}
-        >
-          {pendingWrites > 0 ? "Finishing changes…" : "Sign out"}
-        </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pendingWrites > 0}
+            onClick={() => void handleLogout()}
+          >
+            {pendingWrites > 0 ? "Finishing changes…" : "Sign out"}
+          </Button>
 
-        {logoutError !== null && (
-          <p className="notice notice--error" role="alert">
-            {logoutError}
-          </p>
-        )}
+          {logoutError !== null && (
+            <p className="notice notice--error" role="alert">
+              {logoutError}
+            </p>
+          )}
+        </div>
+
+        {children}
       </div>
-
-      {children}
-    </div>
+    </DraftGuardContext.Provider>
   );
 }

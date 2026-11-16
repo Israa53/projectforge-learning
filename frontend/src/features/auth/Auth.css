@@ -65,3 +65,31 @@
     }
   }
 }
+@layer features {
+  .confirmation-card {
+    text-align: center;
+  }
+
+  .confirmation-icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    border-radius: 20px;
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  .confirmation-card h1 {
+    margin-top: 14px;
+  }
+
+  .confirmation-card .auth-description {
+    margin-bottom: 24px;
+  }
+
+  .confirmation-submit {
+    width: 100%;
+  }
+}

@@ -1,14 +1,69 @@
-import { Button } from "./components/ui/Button";
-import type { ReactNode } from "react";
-
+import { lazy, Suspense, type ReactNode } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 
-import App from "./App";
-
+import { Button } from "./components/ui/Button";
 import { AuthGate } from "./features/auth/AuthGate";
 import { useAuth } from "./features/auth/AuthProvider";
-import { LoginPage } from "./features/auth/LoginPage";
-import { WorkItemDetails } from "./features/items/WorkItemDetails";
+import "./features/auth/Auth.css";
+
+// Declare lazy components outside component functions.
+const DashboardPage = lazy(() => import("./App"));
+
+// These files use named exports, so adapt them to lazy's default shape.
+const LoginPage = lazy(() =>
+  import("./features/auth/LoginPage").then(module => ({
+    default: module.LoginPage,
+  })),
+);
+
+const WorkItemDetails = lazy(() =>
+  import("./features/items/WorkItemDetails").then(module => ({
+    default: module.WorkItemDetails,
+  })),
+);
+
+const ConfirmEmailPage = lazy(() =>
+  import("./features/auth/ConfirmEmailPage").then(module => ({
+    default: module.ConfirmEmailPage,
+  })),
+);
+
+function PageLoading() {
+  return (
+    <div className="feedback-panel" role="status">
+      Loading page…
+    </div>
+  );
+}
+
+function PageError() {
+  return (
+    <section className="feedback-panel" role="alert">
+      <h2>We couldn’t open this page.</h2>
+      <p>Reload the application to try again.</p>
+
+      <Button type="button" onClick={() => window.location.reload()}>
+        Reload application
+      </Button>
+    </section>
+  );
+}
+
+function PageBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation();
+
+  return (
+    <ErrorBoundary
+      FallbackComponent={PageError}
+      resetKeys={[location.pathname]}
+    >
+      <Suspense fallback={<PageLoading />}>
+        {children}
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
 
 function getReturnPath(state: unknown): string {
   if (
@@ -20,8 +75,6 @@ function getReturnPath(state: unknown): string {
     return "/work-items";
   }
 
-  // Only allow a destination belonging to our dashboard.
-  // Preserve its query string and fragment.
   const from = state.from;
 
   if (
@@ -98,7 +151,7 @@ function NotFoundPage() {
 export function AppRoutes() {
   const { state, retrySession } = useAuth();
 
-  // Finish session restoration before deciding where to redirect.
+  // Restore the session before deciding which route to show.
   if (state.status === "loading") {
     return (
       <main className="auth-page">
@@ -112,7 +165,6 @@ export function AppRoutes() {
       <main className="auth-page">
         <section className="auth-card panel">
           <h1>Couldn’t connect.</h1>
-
           <p role="alert">{state.message}</p>
 
           <Button type="button" onClick={retrySession}>
@@ -139,7 +191,9 @@ export function AppRoutes() {
         path="/login"
         element={
           <GuestOnly>
-            <LoginPage key="login" mode="login" />
+            <PageBoundary>
+              <LoginPage key="login" mode="login" />
+            </PageBoundary>
           </GuestOnly>
         }
       />
@@ -148,7 +202,9 @@ export function AppRoutes() {
         path="/register"
         element={
           <GuestOnly>
-            <LoginPage key="register" mode="register" />
+            <PageBoundary>
+              <LoginPage key="register" mode="register" />
+            </PageBoundary>
           </GuestOnly>
         }
       />
@@ -158,22 +214,36 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <AuthGate>
-              <App />
+              <PageBoundary>
+                <DashboardPage />
+              </PageBoundary>
             </AuthGate>
           </RequireAuth>
         }
       />
+
       <Route
         path="/work-items/:id"
         element={
           <RequireAuth>
             <AuthGate>
-              <WorkItemDetails />
+              <PageBoundary>
+                <WorkItemDetails />
+              </PageBoundary>
             </AuthGate>
           </RequireAuth>
         }
       />
+
       <Route path="*" element={<NotFoundPage />} />
+      <Route
+        path="/confirm-email"
+        element={
+          <PageBoundary>
+            <ConfirmEmailPage />
+          </PageBoundary>
+        }
+      />
     </Routes>
   );
 }

@@ -1,12 +1,11 @@
 import { ApiError, apiFetch, ensureSuccess } from "../../lib/http";
-
 import type {
   NewWorkItemInput,
   PagedResult,
   WorkItem,
   WorkItemFilters,
+  WorkItemStats,
 } from "./types";
-
 export async function getWorkItems(
   filters: WorkItemFilters,
   signal?: AbortSignal,
@@ -95,6 +94,18 @@ export async function getWorkItem(
   signal?: AbortSignal,
 ): Promise<WorkItem> {
   const response = await apiFetch(`/api/work-items/${encodeURIComponent(id)}`, {
+    signal,
+  });
+
+  await ensureSuccess(response);
+
+  return response.json();
+}
+
+export async function getWorkItemStats(
+  signal?: AbortSignal,
+): Promise<WorkItemStats> {
+  const response = await apiFetch("/api/work-items/stats", {
     signal,
   });
 

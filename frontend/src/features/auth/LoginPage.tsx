@@ -7,8 +7,6 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from "./AuthProvider";
 import { register } from "./api";
 
-import "./Auth.css";
-
 type LoginPageProps = {
   mode: "login" | "register";
 };

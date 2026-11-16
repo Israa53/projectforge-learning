@@ -17,6 +17,31 @@ public sealed class WorkItemService(AppDbContext db)
         );
     }
 
+    public async Task<WorkItemStatsDto> GetStatsAsync(
+        string userId,
+        CancellationToken ct)
+    {
+        var counts = await OwnedItems(userId)
+            .AsNoTracking()
+            .GroupBy(item => item.Status)
+            .Select(group => new
+            {
+                Status = group.Key,
+                Count = group.Count()
+            })
+            .ToDictionaryAsync(
+                row => row.Status,
+                row => row.Count,
+                ct
+            );
+
+        return new WorkItemStatsDto(
+            Total: counts.Values.Sum(),
+            Backlog: counts.GetValueOrDefault(WorkStatus.Backlog),
+            InProgress: counts.GetValueOrDefault(WorkStatus.InProgress),
+            Done: counts.GetValueOrDefault(WorkStatus.Done)
+        );
+    }
     public async Task<PagedResult<WorkItemDto>> GetAllAsync(
         string userId,
         ListQuery input,

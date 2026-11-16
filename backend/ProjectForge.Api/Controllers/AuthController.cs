@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using ProjectForge.Api.Auth;
 using ProjectForge.Api.Contracts;
 using ProjectForge.Api.Models;
-
+using ProjectForge.Api.Email;
+using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 namespace ProjectForge.Api.Controllers;
 
 [ApiController]
@@ -19,7 +21,8 @@ public class AuthController(
     UserManager<ApplicationUser> users,
     SignInManager<ApplicationUser> signIn,
     AuthSessionService sessions,
-    IAntiforgery antiforgery) : ControllerBase
+    IAntiforgery antiforgery,
+    AccountEmailService accountEmails) : ControllerBase
 {
     private const string CookieName = "__Secure-projectforge.refresh";
 
@@ -32,15 +35,54 @@ public class AuthController(
     }
 
     [AllowAnonymous]
+    [HttpPost("test-email")]
+    public async Task<IActionResult> TestEmail(
+        [FromHeader(Name = "X-CSRF-TOKEN")] string csrfToken,
+        [FromServices] IWebHostEnvironment environment,
+        [FromServices] IAppEmailSender emailSender,
+        CancellationToken ct)
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+        {
+            return CsrfError();
+        }
+
+        await emailSender.SendAsync(
+            recipient: "learning@projectforge.test",
+            subject: "ProjectForge email delivery works",
+            textBody: "Your ASP.NET backend successfully sent this email.",
+            htmlBody: """
+            <h1>Hello from ProjectForge!</h1>
+            <p>Your ASP.NET backend successfully sent this email.</p>
+            <p>Next: email confirmation and password reset.</p>
+            """,
+            ct: ct);
+
+        return Ok(new { message = "Test email sent to Mailpit." });
+    }
+
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(
-        RegisterInput input,
-        [FromHeader(Name = "X-CSRF-TOKEN")] string csrfToken)
+    RegisterInput input,
+    [FromHeader(Name = "X-CSRF-TOKEN")] string csrfToken,
+    CancellationToken ct)
     {
-        if (!await antiforgery.IsRequestValidAsync(HttpContext)) return CsrfError();
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+            return CsrfError();
 
         var email = input.Email.Trim();
-        var user = new ApplicationUser { UserName = email, Email = email };
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email
+        };
+
         var result = await users.CreateAsync(user, input.Password);
 
         if (!result.Succeeded)
@@ -51,9 +93,16 @@ public class AuthController(
             return ValidationProblem(ModelState);
         }
 
-        return StatusCode(201, new { message = "Account created successfully." });
-    }
+        var sent = await accountEmails.SendConfirmationAsync(user, ct);
 
+        return StatusCode(201, new
+        {
+            message = sent
+                ? "Account created. Check your email to confirm your address."
+                : "Account created, but email delivery failed. Request another confirmation email.",
+            confirmationEmailSent = sent
+        });
+    }
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(
@@ -112,6 +161,67 @@ public class AuthController(
         Response.Cookies.Delete(CookieName, RefreshCookieOptions());
         return NoContent();
     }
+    [AllowAnonymous]
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail(
+        EmailConfirmationInput input,
+        [FromHeader(Name = "X-CSRF-TOKEN")] string csrfToken)
+    {
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+            return CsrfError();
+
+        var user = await users.FindByIdAsync(input.UserId);
+
+        if (user is null)
+            return InvalidConfirmation();
+
+        string token;
+
+        try
+        {
+            token = Encoding.UTF8.GetString(
+                WebEncoders.Base64UrlDecode(input.Code));
+        }
+        catch (FormatException)
+        {
+            return InvalidConfirmation();
+        }
+
+        var result = await users.ConfirmEmailAsync(user, token);
+
+        return result.Succeeded
+            ? Ok(new { message = "Email confirmed successfully." })
+            : InvalidConfirmation();
+    }
+
+    [AllowAnonymous]
+    [HttpPost("resend-confirmation")]
+    public async Task<IActionResult> ResendConfirmation(
+        ResendConfirmationInput input,
+        [FromHeader(Name = "X-CSRF-TOKEN")] string csrfToken,
+        CancellationToken ct)
+    {
+        if (!await antiforgery.IsRequestValidAsync(HttpContext))
+            return CsrfError();
+
+        var user = await users.FindByEmailAsync(input.Email.Trim());
+
+        if (user is not null && !await users.IsEmailConfirmedAsync(user))
+        {
+            await accountEmails.SendConfirmationAsync(user, ct);
+        }
+
+        return Accepted(new
+        {
+            message =
+                "If the account needs confirmation, a confirmation email will be sent."
+        });
+    }
+
+    private ObjectResult InvalidConfirmation() => Problem(
+        statusCode: 400,
+        title: "Invalid confirmation link",
+        detail: "This confirmation link is invalid or expired. Request a new one.");
 
     [Authorize]
     [HttpGet("me")]

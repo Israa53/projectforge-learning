@@ -436,3 +436,52 @@
     }
   }
 }
+@layer features {
+  .stats-summary {
+    margin-bottom: var(--space-5);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin: 0;
+  }
+
+  .stats-card {
+    min-width: 0;
+    padding: var(--space-5);
+  }
+
+  .stats-card dt {
+    color: var(--color-muted);
+    font-size: 13px;
+  }
+
+  .stats-card dd {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text);
+    font-size: clamp(28px, 3vw, 38px);
+    font-weight: 750;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stats-card--inProgress dd {
+    color: var(--color-warning);
+  }
+
+  .stats-card--done dd {
+    color: var(--color-success);
+  }
+
+  @media (max-width: 640px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stats-card {
+      padding: var(--space-4);
+    }
+  }
+}

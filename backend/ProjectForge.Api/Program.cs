@@ -10,6 +10,7 @@ using ProjectForge.Api.Auth;
 using ProjectForge.Api.Data;
 using ProjectForge.Api.Models;
 using ProjectForge.Api.Services;
+using ProjectForge.Api.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +36,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
 .AddEntityFrameworkStores<AppDbContext>()
-.AddSignInManager();
+.AddSignInManager()
+.AddDefaultTokenProviders();
 
 // Load JWT settings and fail at startup if required values are missing or invalid.
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new();
@@ -94,7 +96,7 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = 30,
+            PermitLimit = builder.Environment.IsEnvironment("E2E") ? 1000 : 30,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true
@@ -153,7 +155,21 @@ builder.Services.AddOpenApi(options =>
         return Task.CompletedTask;
     });
 });
+
 builder.Services.AddScoped<WorkItemService>();
+if (builder.Environment.IsEnvironment("Testing") ||
+    builder.Environment.IsEnvironment("E2E"))
+{
+    builder.Services.AddSingleton<RecordingEmailSender>();
+
+    builder.Services.AddSingleton<IAppEmailSender>(services =>
+        services.GetRequiredService<RecordingEmailSender>());
+}
+else
+{
+    builder.Services.AddScoped<IAppEmailSender, DevelopmentEmailSender>();
+}
+builder.Services.AddScoped<AccountEmailService>();
 // Build the configured services and middleware into the web application.
 var app = builder.Build();
 
